@@ -23,7 +23,6 @@ import (
 
 	"sigs.k8s.io/external-dns/endpoint"
 
-	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -92,11 +91,6 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 
 	domains := make(map[string][]string)
 	for _, pod := range pods {
-		if !pod.Spec.HostNetwork {
-			log.Debugf("skipping pod %s. hostNetwork=false", pod.Name)
-			continue
-		}
-
 		if domain, ok := pod.Annotations[internalHostnameAnnotationKey]; ok {
 			if _, ok := domains[domain]; !ok {
 				domains[domain] = []string{}
