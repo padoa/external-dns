@@ -98,19 +98,6 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 			domains[domain] = append(domains[domain], pod.Status.PodIP)
 		}
 
-		if domain, ok := pod.Annotations[hostnameAnnotationKey]; ok {
-			if _, ok := domains[domain]; !ok {
-				domains[domain] = []string{}
-			}
-
-			node, _ := ps.nodeInformer.Lister().Get(pod.Spec.NodeName)
-			for _, address := range node.Status.Addresses {
-				if address.Type == corev1.NodeExternalIP {
-					domains[domain] = append(domains[domain], address.Address)
-				}
-			}
-		}
-
 		if ps.compatibility == "kops-dns-controller" {
 			if domain, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
 				if _, ok := domains[domain]; !ok {
