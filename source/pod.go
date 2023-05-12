@@ -91,30 +91,40 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 
 	domains := make(map[string][]string)
 	for _, pod := range pods {
-		if domain, ok := pod.Annotations[internalHostnameAnnotationKey]; ok {
-			if _, ok := domains[domain]; !ok {
-				domains[domain] = []string{}
-			}
-			domains[domain] = append(domains[domain], pod.Status.PodIP)
-		}
-
-		if ps.compatibility == "kops-dns-controller" {
-			if domain, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
+		if domainAnnotation, ok := pod.Annotations[internalHostnameAnnotationKey]; ok {
+			domainList := splitHostnameAnnotation(domainAnnotation)
+			for _, domain := range domainList {
 				if _, ok := domains[domain]; !ok {
 					domains[domain] = []string{}
 				}
 				domains[domain] = append(domains[domain], pod.Status.PodIP)
 			}
+		}
 
-			if domain, ok := pod.Annotations[kopsDNSControllerHostnameAnnotationKey]; ok {
-				if _, ok := domains[domain]; !ok {
-					domains[domain] = []string{}
+		if ps.compatibility == "kops-dns-controller" {
+			if domainAnnotation, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
+				domainList := splitHostnameAnnotation(domainAnnotation)
+				for _, domain := range domainList {
+					if _, ok := domains[domain]; !ok {
+						domains[domain] = []string{}
+					}
+					domains[domain] = append(domains[domain], pod.Status.PodIP)
 				}
+			}
 
-				node, _ := ps.nodeInformer.Lister().Get(pod.Spec.NodeName)
-				for _, address := range node.Status.Addresses {
-					if address.Type == corev1.NodeExternalIP {
-						domains[domain] = append(domains[domain], address.Address)
+			if domainAnnotation, ok := pod.Annotations[kopsDNSControllerHostnameAnnotationKey]; ok {
+				domainList := splitHostnameAnnotation(domainAnnotation)
+
+				for _, domain := range domainList {
+					if _, ok := domains[domain]; !ok {
+						domains[domain] = []string{}
+					}
+
+					node, _ := ps.nodeInformer.Lister().Get(pod.Spec.NodeName)
+					for _, address := range node.Status.Addresses {
+						if address.Type == corev1.NodeExternalIP {
+							domains[domain] = append(domains[domain], address.Address)
+						}
 					}
 				}
 			}
