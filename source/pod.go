@@ -92,28 +92,35 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 	domains := make(map[string][]string)
 	endpoints := []*endpoint.Endpoint{}
 	for _, pod := range pods {
-		internalHostnameList := getInternalHostnamesFromAnnotations(pod.Annotations)
-		for _, hostname := range internalHostnameList {
+		internalHostnames := getInternalHostnamesFromAnnotations(pod.Annotations)
+		for _, hostname := range internalHostnames {
 			endpoints = append(endpoints, endpoint.NewEndpoint(hostname, endpoint.RecordTypeA, pod.Status.PodIP))
 		}
 
 		if ps.compatibility == "kops-dns-controller" {
-			if domain, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
-				if _, ok := domains[domain]; !ok {
-					domains[domain] = []string{}
+			if domainAnnotation, ok := pod.Annotations[kopsDNSControllerInternalHostnameAnnotationKey]; ok {
+				domainsList := splitHostnameAnnotation(domainAnnotation)
+				for _, domain := range domainsList {
+					if _, ok := domains[domain]; !ok {
+						domains[domain] = []string{}
+					}
+					domains[domain] = append(domains[domain], pod.Status.PodIP)
 				}
-				domains[domain] = append(domains[domain], pod.Status.PodIP)
 			}
 
-			if domain, ok := pod.Annotations[kopsDNSControllerHostnameAnnotationKey]; ok {
-				if _, ok := domains[domain]; !ok {
-					domains[domain] = []string{}
-				}
+			if domainAnnotation, ok := pod.Annotations[kopsDNSControllerHostnameAnnotationKey]; ok {
+				domainsList := splitHostnameAnnotation(domainAnnotation)
 
-				node, _ := ps.nodeInformer.Lister().Get(pod.Spec.NodeName)
-				for _, address := range node.Status.Addresses {
-					if address.Type == corev1.NodeExternalIP {
-						domains[domain] = append(domains[domain], address.Address)
+				for _, domain := range domainsList {
+					if _, ok := domains[domain]; !ok {
+						domains[domain] = []string{}
+					}
+
+					node, _ := ps.nodeInformer.Lister().Get(pod.Spec.NodeName)
+					for _, address := range node.Status.Addresses {
+						if address.Type == corev1.NodeExternalIP {
+							domains[domainAnnotation] = append(domains[domain], address.Address)
+						}
 					}
 				}
 			}
