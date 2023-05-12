@@ -90,12 +90,11 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 	}
 
 	domains := make(map[string][]string)
+	endpoints := []*endpoint.Endpoint{}
 	for _, pod := range pods {
-		if domain, ok := pod.Annotations[internalHostnameAnnotationKey]; ok {
-			if _, ok := domains[domain]; !ok {
-				domains[domain] = []string{}
-			}
-			domains[domain] = append(domains[domain], pod.Status.PodIP)
+		internalHostnameList := getInternalHostnamesFromAnnotations(pod.Annotations)
+		for _, hostname := range internalHostnameList {
+			endpoints = append(endpoints, endpoint.NewEndpoint(hostname, endpoint.RecordTypeA, pod.Status.PodIP))
 		}
 
 		if ps.compatibility == "kops-dns-controller" {
@@ -120,7 +119,7 @@ func (ps *podSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 			}
 		}
 	}
-	endpoints := []*endpoint.Endpoint{}
+
 	for domain, targets := range domains {
 		endpoints = append(endpoints, endpoint.NewEndpoint(domain, endpoint.RecordTypeA, targets...))
 	}
